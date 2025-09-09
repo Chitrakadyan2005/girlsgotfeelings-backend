@@ -6,12 +6,14 @@ const { Server } = require('socket.io');
 
 // Express setup
 const app = express();
+
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: process.env.CLIENT_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
+
 app.use(express.json());
 
 // Routes
@@ -33,10 +35,18 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/stream-rooms', streamRoomRoutes);
 
+// Default route
+app.get("/", (req, res) => {
+  res.send("Backend is running 🚀");
+});
+
 // Server + Socket.io
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: 'http://localhost:5173', methods: ['GET', 'POST'] }
+  cors: {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+  }
 });
 
 // Import socket handlers
