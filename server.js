@@ -7,12 +7,28 @@ const { Server } = require('socket.io');
 // Express setup
 const app = express();
 
+const allowedOrigins = [
+  process.env.CLIENT_URL,      // deployed frontend
+  "http://localhost:5173"      // local dev
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  origin: function(origin, callback){
+    if(!origin) return callback(null, true); // curl/Postman
+    if(allowedOrigins.includes(origin)){
+      callback(null, true); // ✅ allowed origin
+    } else {
+      console.log("Blocked CORS request from:", origin);
+      callback(null, false); // ❌ reject origin without throwing error
+    }
+  },
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
+  credentials: true
 }));
+
+
+
 
 app.use(express.json());
 
@@ -42,10 +58,12 @@ app.get("/", (req, res) => {
 
 // Server + Socket.io
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 

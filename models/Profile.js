@@ -31,7 +31,7 @@ getUserStatsById: async (userId) => {
 
   getUserPostsByUsername: async (username) => {
   const { rows } = await pool.query(
-    `SELECT 
+    `SELECT
       p.id,
       p.content,
       to_char(p.created_at, 'DD Mon YYYY HH:MI AM') as "time",
@@ -39,7 +39,8 @@ getUserStatsById: async (userId) => {
      FROM posts p
      JOIN users u ON p.user_id = u.id
      WHERE lower(u.username) = $1
-     ORDER BY p.created_at DESC`,
+     ORDER BY p.created_at DESC
+     LIMIT 10`,
     [username.toLowerCase()]
   );
   return rows;
@@ -90,6 +91,28 @@ unfollowUser: async (followerId, followingId) => {
       `UPDATE users SET avatar_url = $1 WHERE id = $2`,
       [avatarUrl, userId]
     );
+  },
+
+  getFollowers: async (userId) => {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.username, u.avatar_url as "avatarUrl"
+       FROM users u
+       JOIN followers f ON u.id = f.follower_id
+       WHERE f.following_id = $1`,
+      [userId]
+    );
+    return rows;
+  },
+
+  getFollowing: async (userId) => {
+    const { rows } = await pool.query(
+      `SELECT u.id, u.username, u.avatar_url as "avatarUrl"
+       FROM users u
+       JOIN followers f ON u.id = f.following_id
+       WHERE f.follower_id = $1`,
+      [userId]
+    );
+    return rows;
   }
 };
 

@@ -17,7 +17,7 @@ exports.getProfile = async (req, res) => {
       username: profile.username,
       bio: profile.bio || '',
       joinDate: profile.joinDate,
-      avatarUrl: profile.avatar_url || '',
+      avatarUrl: profile.avatar_url || '/pfps/default.png',
       posts: posts.map(p => ({
         id: p.id,
         content: p.content,
@@ -77,6 +77,26 @@ exports.isFollowing = async (req, res) => {
     res.json({ isFollowing: following });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+};
+
+exports.getFollowers = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const followers = await Profile.getFollowers(userId);
+    res.json({ followers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getFollowing = async (req, res) => {
+  try {
+    const userId = parseInt(req.params.userId);
+    const following = await Profile.getFollowing(userId);
+    res.json({ following });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 };
 

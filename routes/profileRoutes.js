@@ -19,6 +19,8 @@ router.get('/:username', profileController.getProfile);
 router.post('/follow/:targetId', jwtverify, profileController.followUser);
 router.post('/unfollow/:targetId', jwtverify, profileController.unfollowUser);
 router.get('/is-following/:targetId', jwtverify, profileController.isFollowing);
+router.get('/followers/:userId', jwtverify, profileController.getFollowers);
+router.get('/following/:userId', jwtverify, profileController.getFollowing);
 router.put('/avatar', jwtverify, upload.single('avatar'), profileController.updateAvatar);
 
 
