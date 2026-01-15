@@ -6,6 +6,7 @@ const { jwtverify } = require('../middlewares/auth');
 
 router.post('/register',authController.register);
 router.post('/login',authController.login);
+router.post('/reset-password', authController.resetPassword);
 router.delete('/delete', jwtverify, authController.deleteAccount);
 
 module.exports = router;

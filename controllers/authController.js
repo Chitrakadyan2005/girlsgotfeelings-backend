@@ -35,6 +35,24 @@ exports.login = async (req, res) => {
 };
 
 
+exports.resetPassword = async (req, res) => {
+  try{
+    console.log('RESET PASSWORD BODY:', req.body);
+    let{username, newPassword} = req.body;
+    if(!username || !newPassword){
+      return res.status(400).json({error: 'Username and new password are required'});
+    }
+     username = username.trim().toLowerCase();
+    if(newPassword.length < 6){
+      return res.status(400).json({error: 'Password must be at least 6 characters'});
+    }
+    await User.updatePassword(username, newPassword);
+    res.status(200).json({message: 'Password updated successfully'});
+  }catch(err){
+    res.status(400).json({error:err.message});
+  }
+};
+
 exports.deleteAccount = async (req, res) => {
   try {
     const userId = req.user.id;

@@ -61,6 +61,18 @@ const User = {
 
   },
   
+  updatePassword: async(username, newPassword) => {
+     username = username.trim().toLowerCase();
+
+    const secret_phrase_hash = await bcrypt.hash(newPassword, 10);
+
+    const{ rowCount } = await pool.query(
+      'UPDATE users SET secret_phrase_hash = $1 WHERE username = $2',
+      [secret_phrase_hash, username]
+    );
+    if(rowCount === 0) throw new Error('user not found');
+  },
+  
   delete: async(id) => {
     const { rowCount } = await pool.query(
       'DELETE FROM users WHERE id = $1',[id]
