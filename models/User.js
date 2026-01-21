@@ -3,22 +3,22 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const User = {
-  create: async (username, userProvidedPhrase) => {
-    // Check if username already exists
-    const exists = await pool.query(
-      'SELECT * FROM users WHERE username = $1',
-      [username]
-    );
-    if (exists.rows.length) throw new Error('Username already exists');
+  create: async (username, email, userProvidedPhrase) => {
+  const exists = await pool.query(
+    'SELECT * FROM users WHERE username = $1 OR email = $2',
+    [username, email]
+  );
+  if (exists.rows.length) throw new Error('User already exists');
 
-    const secret_phrase_hash = await bcrypt.hash(userProvidedPhrase, 10);
-    
-    const { rows } = await pool.query(
-      `INSERT INTO users (username, secret_phrase_hash)
-       VALUES ($1, $2)
-       RETURNING id, anonymous_id, username`,
-      [username, secret_phrase_hash]
-    );
+  const secret_phrase_hash = await bcrypt.hash(userProvidedPhrase, 10);
+
+  const { rows } = await pool.query(
+    `INSERT INTO users (username, email, secret_phrase_hash)
+     VALUES ($1, $2, $3)
+     RETURNING id, anonymous_id, username`,
+    [username, email, secret_phrase_hash]
+  );
+
     
     return {
   token: jwt.sign(

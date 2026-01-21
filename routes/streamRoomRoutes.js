@@ -66,32 +66,28 @@ router.get('/:roomCode', jwtverify, async (req, res) => {
   }
 });
 
-// Join a room (add participant)
 router.post('/:roomCode/join', jwtverify, async (req, res) => {
-  try {
-    const { roomCode } = req.params;
-    const { username } = req.body;
-    
-    const roomData = streamRooms.get(roomCode);
-    
-    if (!roomData || !roomData.isActive) {
-      return res.status(404).json({ error: 'Room not found or inactive' });
-    }
+  const { roomCode } = req.params;
+  const { username, roomName } = req.body;
 
-    // Add participant if not already in room
-    if (!roomData.participants.includes(username)) {
-      roomData.participants.push(username);
-    }
+  const roomData = streamRooms.get(roomCode);
 
-    res.json({
-      message: 'Joined room successfully',
-      participantCount: roomData.participants.length
-    });
-  } catch (error) {
-    console.error('Error joining room:', error);
-    res.status(500).json({ error: 'Internal server error' });
+  if (!roomData || !roomData.isActive) {
+    return res.status(404).json({ error: 'Room not found' });
   }
+
+  // 🔥 THIS IS THE KEY CHECK
+  if (roomData.roomName !== roomName) {
+    return res.status(403).json({ error: 'Room code does not match room' });
+  }
+
+  if (!roomData.participants.includes(username)) {
+    roomData.participants.push(username);
+  }
+
+  res.json({ success: true });
 });
+
 
 // Leave a room (remove participant)
 router.post('/:roomCode/leave', jwtverify, async (req, res) => {
