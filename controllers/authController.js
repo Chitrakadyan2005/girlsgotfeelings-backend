@@ -29,7 +29,12 @@ exports.sendOtp = async(req, res) => {
     }
     const otpCode = generateOtp();
     await Otp.create({ identifier, purpose, otp: otpCode});
-    await sendOtpMail(targetEmail, otpCode, purpose);
+    console.log("📩 About to send OTP to:", targetEmail);
+
+await sendOtpMail(targetEmail, otpCode, purpose);
+
+console.log("✅ OTP mail function completed");
+
 
     res.json({message: 'OTP sent successfully'});
   }catch(err){
