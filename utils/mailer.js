@@ -1,19 +1,25 @@
 const axios = require("axios");
 
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const FROM_EMAIL = process.env.MAIL_FROM;
+
 exports.sendOtpMail = async (to, otp, purpose) => {
+  if (!BREVO_API_KEY) {
+    throw new Error("Brevo API key missing");
+  }
+
   const subject =
     purpose === "register"
-      ? "Verify your HAVN|LIKE account"
-      : "Reset your HAVN|LIKE password";
+      ? "Verify your HAVNLIKE account"
+      : "Reset your HAVNLIKE password";
 
   const htmlContent = `
-    <div style="font-family: Arial, sans-serif">
-      <h2>🔐 Your OTP Code</h2>
+    <div style="font-family: Arial, sans-serif; padding: 16px;">
+      <h2>${subject}</h2>
       <p>Your OTP is:</p>
-      <h1 style="letter-spacing:4px">${otp}</h1>
-      <p>This code expires in <b>5 minutes</b>.</p>
-      <br/>
-      <p>💗 Team HAVN|LIKE</p>
+      <h1 style="letter-spacing: 4px;">${otp}</h1>
+      <p>This OTP will expire in 5 minutes.</p>
+      <p>If you didn’t request this, you can ignore this email.</p>
     </div>
   `;
 
@@ -21,26 +27,24 @@ exports.sendOtpMail = async (to, otp, purpose) => {
     await axios.post(
       "https://api.brevo.com/v3/smtp/email",
       {
-        sender: {
-          name: "HAVN|LIKE 💗",
-          email: "no-reply@havnlike.app",
-        },
+        sender: { email: FROM_EMAIL, name: "HAVNLIKE" },
         to: [{ email: to }],
         subject,
         htmlContent,
       },
       {
         headers: {
-          "api-key": process.env.BREVO_API_KEY,
+          "api-key": BREVO_API_KEY,
           "Content-Type": "application/json",
         },
+        timeout: 10000,
       }
     );
 
-    console.log("✅ OTP email sent to:", to);
+    console.log("📩 OTP email sent to:", to);
   } catch (err) {
     console.error(
-      "❌ Failed to send OTP email:",
+      "❌ Brevo email error:",
       err.response?.data || err.message
     );
     throw new Error("Failed to send OTP email");
