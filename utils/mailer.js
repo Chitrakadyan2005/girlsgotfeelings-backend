@@ -27,7 +27,7 @@ exports.sendOtpMail = async (to, otp, purpose) => {
     await axios.post(
       "https://api.brevo.com/v3/smtp/email",
       {
-        sender: { email: FROM_EMAIL, name: "HAVNLIKE" },
+        sender: { email: "no-reply@brevo.com", name: "HAVNLIKE" },
         to: [{ email: to }],
         subject,
         htmlContent,
