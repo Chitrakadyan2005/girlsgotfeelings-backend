@@ -4,8 +4,8 @@ const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const FROM_EMAIL = process.env.MAIL_FROM;
 
 exports.sendOtpMail = async (to, otp, purpose) => {
-  if (!BREVO_API_KEY) {
-    throw new Error("Brevo API key missing");
+  if (!BREVO_API_KEY || !FROM_EMAIL) {
+    throw new Error("Brevo env vars missing");
   }
 
   const subject =
@@ -27,7 +27,10 @@ exports.sendOtpMail = async (to, otp, purpose) => {
     await axios.post(
       "https://api.brevo.com/v3/smtp/email",
       {
-        sender: { email: "no-reply@brevo.com", name: "HAVNLIKE" },
+        sender: {
+          email: FROM_EMAIL,  
+          name: "HAVNLIKE",
+        },
         to: [{ email: to }],
         subject,
         htmlContent,
