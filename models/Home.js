@@ -56,6 +56,39 @@ const Post = {
     return rows[0];
   },
 
+  // Edit post (only owner)
+editPost: async (postId, userId, content) => {
+  // Check ownership
+  const { rows } = await pool.query(
+    "SELECT user_id FROM posts WHERE id = $1",
+    [postId]
+  );
+
+  if (rows.length === 0) return null;
+  if (rows[0].user_id !== userId) return "FORBIDDEN";
+
+  const result = await pool.query(
+    "UPDATE posts SET content = $1 WHERE id = $2 RETURNING id, content",
+    [content, postId]
+  );
+
+  return result.rows[0];
+},
+
+// Delete post (only owner)
+deletePost: async (postId, userId) => {
+  const { rows } = await pool.query(
+    "SELECT user_id FROM posts WHERE id = $1",
+    [postId]
+  );
+
+  if (rows.length === 0) return null;
+  if (rows[0].user_id !== userId) return "FORBIDDEN";
+
+  await pool.query("DELETE FROM posts WHERE id = $1", [postId]);
+  return true;
+},
+
   // Toggle like/unlike
   toggleLike: async (postId, userId) => {
   const existing = await pool.query(

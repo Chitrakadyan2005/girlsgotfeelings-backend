@@ -7,5 +7,7 @@ router.get('/posts', jwtverify, homeController.getAllPosts);
 router.post('/posts', jwtverify, homeController.createPost); // <-- add middleware
 router.post('/posts/:postId/like', jwtverify, homeController.likePost);
 router.post('/posts/:postId/comment', jwtverify, homeController.commentPost);
+router.put('/posts/:postId', jwtverify, homeController.editPost);
+router.delete('/posts/:postId', jwtverify, homeController.deletePost);
 
 module.exports = router;

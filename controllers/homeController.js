@@ -36,6 +36,59 @@ exports.createPost = async (req, res) => {
   }
 };
 
+exports.editPost = async (req, res) => {
+  try {
+    const postId = Number(req.params.postId);
+    const { content } = req.body;
+
+    if (!content || !content.trim())
+      return res.status(400).json({ error: 'Content is required' });
+
+    const result = await Post.editPost(
+      postId,
+      req.user.id,
+      content.trim()
+    );
+
+    if (result === null)
+      return res.status(404).json({ error: 'Post not found' });
+
+    if (result === "FORBIDDEN")
+      return res.status(403).json({ error: 'Not allowed to edit this post' });
+
+    res.json({
+      id: result.id,
+      content: result.content
+    });
+  } catch (err) {
+    console.error("Error editing post:", err);
+    res.status(500).json({ error: 'Server error while editing post' });
+  }
+};
+
+exports.deletePost = async (req, res) => {
+  try {
+    const postId = Number(req.params.postId);
+
+    const result = await Post.deletePost(
+      postId,
+      req.user.id
+    );
+
+    if (result === null)
+      return res.status(404).json({ error: 'Post not found' });
+
+    if (result === "FORBIDDEN")
+      return res.status(403).json({ error: 'Not allowed to delete this post' });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Error deleting post:", err);
+    res.status(500).json({ error: 'Server error while deleting post' });
+  }
+};
+
+
 // Like/unlike post
 exports.likePost = async (req, res) => {
   try {
