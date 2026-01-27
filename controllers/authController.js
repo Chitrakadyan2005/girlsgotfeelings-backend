@@ -4,41 +4,39 @@ const { generateOtp } = require('../utils/otp');
 const { sendOtpMail } = require('../utils/mailer');
 const pool = require('../config/db');
 
-exports.sendOtp = async(req, res) => {
-  try{
-    const{ email, username, purpose } = req.body;
+
+exports.sendOtp = async (req, res) => {
+  try {
+    const { email, username, purpose } = req.body;
 
     let identifier, targetEmail;
 
-    if(purpose === 'register'){
-      if(!email) throw new Error('Email required');
+    if (purpose === 'register') {
+      if (!email) throw new Error('Email required');
       identifier = email.toLowerCase();
       targetEmail = identifier;
     }
 
-    if(purpose === 'forgot'){
-      if(!username) throw new Error('Username required');
+    if (purpose === 'forgot') {
+      if (!username) throw new Error('Username required');
 
       const { rows } = await pool.query(
         'SELECT email FROM users WHERE username = $1',
         [username.toLowerCase()]
       );
-      if(!rows.length) throw new Error('User not found');
+      if (!rows.length) throw new Error('User not found');
       identifier = username.toLowerCase();
       targetEmail = rows[0].email;
     }
+
     const otpCode = generateOtp();
-    await Otp.create({ identifier, purpose, otp: otpCode});
-    console.log("📩 About to send OTP to:", targetEmail);
+    await Otp.create({ identifier, purpose, otp: otpCode });
 
-await sendOtpMail(targetEmail, otpCode, purpose);
+    await sendOtpMail(targetEmail, otpCode, purpose);
 
-console.log("✅ OTP mail function completed");
-
-
-    res.json({message: 'OTP sent successfully'});
-  }catch(err){
-    res.status(400).json({error: err.message});
+    res.json({ message: 'OTP sent successfully' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
@@ -52,19 +50,18 @@ exports.verifyOtp = async (req, res) => {
         : username?.toLowerCase();
 
     if (!identifier) {
-      throw new Error("Invalid verification request");
+      throw new Error('Invalid verification request');
     }
 
     await Otp.verify({ identifier, purpose, otp });
 
     res.json({ verified: true });
-
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 };
 
-
+ // ⚠️ LEGACY AUTH: retained temporarily for backward compatibility
 exports.register = async (req, res) => {
   try {
     const { username, email, secret_phrase } = req.body;
@@ -74,12 +71,17 @@ exports.register = async (req, res) => {
     }
 
     if (!secret_phrase || secret_phrase.length < 6) {
-      return res.status(400).json({ error: 'Secret phrase must be at least 6 characters' });
+      return res.status(400).json({
+        error: 'Secret phrase must be at least 6 characters',
+      });
     }
 
     const user = await User.create(username, email, secret_phrase);
-    res.json({ token: user.token, username: user.username });
 
+    res.json({
+      token: user.token,
+      username: user.username,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -88,11 +90,11 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { username, secret_phrase } = req.body;
-    const user = await User.login(username, secret_phrase); // should return user with token
+    const user = await User.login(username, secret_phrase);
 
     res.json({
       token: user.token,
-      username: user.username // ✅ always send the correct one
+      username: user.username,
     });
   } catch (err) {
     res.status(401).json({ error: err.message });
@@ -101,8 +103,6 @@ exports.login = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    console.log('RESET PASSWORD BODY:', req.body);
-
     let { username, newPassword } = req.body;
 
     if (!username || !newPassword) {
@@ -124,7 +124,29 @@ exports.resetPassword = async (req, res) => {
     res.status(200).json({
       message: 'Password updated successfully',
     });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
+exports.deleteAccount = async (req, res) => {
+  try {
+    let user;
+
+    if (req.user.firebaseUid) {
+      const result = await pool.query(
+        'SELECT id FROM users WHERE firebase_uid = $1',
+        [req.user.firebaseUid]
+      );
+      if (!result.rows.length) throw new Error('User not found');
+      user = result.rows[0];
+    } else {
+      user = { id: req.user.id };
+    }
+
+    await User.delete(user.id);
+
+    res.status(200).json({ message: 'User deleted successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -132,13 +154,55 @@ exports.resetPassword = async (req, res) => {
 
 
 
-exports.deleteAccount = async (req, res) => {
+exports.syncFirebaseUser = async (req, res) => {
   try {
-    const userId = req.user.id;
-    await User.delete(userId);
-    res.status(200).json({ message: 'User deleted successfully' });
+    const { firebaseUid, email } = req.user;
+
+    const user = await User.findOrCreateByFirebase(firebaseUid, email);
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
   } catch (err) {
-    console.error('Delete Error:', err);
-    res.status(400).json({ error: err.message || 'Something went wrong' });
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: 'User sync failed',
+    });
+  }
+};
+
+// 🔹 PRIMARY LOGIN (Firebase-first)
+exports.firebaseLogin = async (req, res) => {
+  try {
+    const { firebaseUid, email } = req.user;
+
+    const user = await User.findOrCreateByFirebase(firebaseUid, email);
+
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      message: 'Firebase login failed',
+    });
+  }
+};
+
+exports.me = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      user: req.user,
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user",
+    });
   }
 };

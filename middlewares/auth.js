@@ -1,25 +1,34 @@
-const jwt = require("jsonwebtoken");
-const JWT_SECRET = process.env.JWT_SECRET;
+const admin = require("../config/firebase");
 
 function jwtverify(req, res, next) {
-    const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization;
 
-    if (!authHeader) {
-        return res.status(401).json({ error: 'Authorization token is missing' });
-    }
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized access",
+    });
+  }
 
-    const token = authHeader.split(" ")[1]; // Remove 'Bearer '
+  const token = authHeader.split(" ")[1];
 
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        req.user = decoded;
-        console.log("Decoded JWT:", decoded);
-        console.log(req.user);
+  admin
+    .auth()
+    .verifyIdToken(token)
+    .then((decodedToken) => {
+      req.user = {
+        firebaseUid: decodedToken.uid,
+        email: decodedToken.email,
+      };
 
-        next();
-    } catch (err) {
-        return res.status(401).json({ error: 'Invalid or expired token' });
-    }
+      next();
+    })
+    .catch(() => {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized access",
+      });
+    });
 }
 
 module.exports = { jwtverify };

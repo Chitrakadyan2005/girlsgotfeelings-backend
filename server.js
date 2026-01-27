@@ -16,10 +16,10 @@ app.use(cors({
   origin: function(origin, callback){
     if(!origin) return callback(null, true); // curl/Postman
     if(allowedOrigins.includes(origin)){
-      callback(null, true); // ✅ allowed origin
+      callback(null, true); 
     } else {
       console.log("Blocked CORS request from:", origin);
-      callback(null, false); // ❌ reject origin without throwing error
+      callback(null, false);
     }
   },
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
@@ -70,6 +70,10 @@ const io = new Server(server, {
 // Import socket handlers
 require('./socket/chat')(io);
 require('./socket/stream')(io);
+require("dotenv").config();
+const admin = require("./config/firebase");
+
+console.log("Firebase Admin apps:", admin.apps.length);
 
 // Start server
 const PORT = process.env.PORT || 5000;
