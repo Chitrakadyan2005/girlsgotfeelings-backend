@@ -1,131 +1,61 @@
 const User = require('../models/User');
-const Otp = require('../models/Otp');
-const { generateOtp } = require('../utils/otp');
-const { sendOtpMail } = require('../utils/mailer');
 const pool = require('../config/db');
+const Profile = require("../models/Profile");
 
-
-exports.sendOtp = async (req, res) => {
+exports.setupUsername = async (req, res) => {
   try {
-    const { email, username, purpose } = req.body;
+    const { username, password } = req.body;
+    const { firebaseUid, email } = req.user;
 
-    let identifier, targetEmail;
-
-    if (purpose === 'register') {
-      if (!email) throw new Error('Email required');
-      identifier = email.toLowerCase();
-      targetEmail = identifier;
+    if (!username || !username.trim()) {
+      return res.status(400).json({ error: "Username required" });
     }
 
-    if (purpose === 'forgot') {
-      if (!username) throw new Error('Username required');
+    const cleanUsername = username.trim().toLowerCase();
 
-      const { rows } = await pool.query(
-        'SELECT email FROM users WHERE username = $1',
-        [username.toLowerCase()]
-      );
-      if (!rows.length) throw new Error('User not found');
-      identifier = username.toLowerCase();
-      targetEmail = rows[0].email;
+    const existing = await pool.query(
+      "SELECT id FROM users WHERE username = $1",
+      [cleanUsername]
+    );
+
+    if (existing.rows.length) {
+      return res.status(400).json({ error: "Username already taken" });
     }
 
-    const otpCode = generateOtp();
-    await Otp.create({ identifier, purpose, otp: otpCode });
+    await User.findOrCreateByFirebase(firebaseUid, email);
 
-    await sendOtpMail(targetEmail, otpCode, purpose);
+    if (password && password.trim()) {
+      if (password.length < 6) {
+        return res
+          .status(400)
+          .json({ error: "Password must be at least 6 characters" });
+      }
 
-    res.json({ message: 'OTP sent successfully' });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-exports.verifyOtp = async (req, res) => {
-  try {
-    const { email, username, otp, purpose } = req.body;
-
-    const identifier =
-      purpose === 'register'
-        ? email?.toLowerCase()
-        : username?.toLowerCase();
-
-    if (!identifier) {
-      throw new Error('Invalid verification request');
-    }
-
-    await Otp.verify({ identifier, purpose, otp });
-
-    res.json({ verified: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
- // ⚠️ LEGACY AUTH: retained temporarily for backward compatibility
-exports.register = async (req, res) => {
-  try {
-    const { username, email, secret_phrase } = req.body;
-
-    if (!username || username.trim() === '') {
-      return res.status(400).json({ error: 'Username is required' });
-    }
-
-    if (!secret_phrase || secret_phrase.length < 6) {
-      return res.status(400).json({
-        error: 'Secret phrase must be at least 6 characters',
+      await admin.auth().updateUser(firebaseUid, {
+        password: password,
       });
     }
 
-    const user = await User.create(username, email, secret_phrase);
+    const { rowCount } = await pool.query(
+      `
+      UPDATE users
+      SET username = $1
+      WHERE firebase_uid = $2
+      `,
+      [cleanUsername, firebaseUid]
+    );
 
-    res.json({
-      token: user.token,
-      username: user.username,
-    });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-};
-
-exports.login = async (req, res) => {
-  try {
-    const { username, secret_phrase } = req.body;
-    const user = await User.login(username, secret_phrase);
-
-    res.json({
-      token: user.token,
-      username: user.username,
-    });
-  } catch (err) {
-    res.status(401).json({ error: err.message });
-  }
-};
-
-exports.resetPassword = async (req, res) => {
-  try {
-    let { username, newPassword } = req.body;
-
-    if (!username || !newPassword) {
-      return res.status(400).json({
-        error: 'Username and new password are required',
-      });
+    if (!rowCount) {
+      return res.status(404).json({ error: "User not found" });
     }
-
-    username = username.trim().toLowerCase();
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        error: 'Password must be at least 6 characters',
-      });
-    }
-
-    await User.updatePassword(username, newPassword);
 
     res.status(200).json({
-      message: 'Password updated successfully',
+      success: true,
+      username: cleanUsername,
     });
   } catch (err) {
-    res.status(400).json({ error: err.message });
+    console.error(err);
+    res.status(500).json({ error: "Failed to set username" });
   }
 };
 
@@ -152,8 +82,6 @@ exports.deleteAccount = async (req, res) => {
   }
 };
 
-
-
 exports.syncFirebaseUser = async (req, res) => {
   try {
     const { firebaseUid, email } = req.user;
@@ -173,7 +101,6 @@ exports.syncFirebaseUser = async (req, res) => {
   }
 };
 
-// 🔹 PRIMARY LOGIN (Firebase-first)
 exports.firebaseLogin = async (req, res) => {
   try {
     const { firebaseUid, email } = req.user;
@@ -193,16 +120,55 @@ exports.firebaseLogin = async (req, res) => {
   }
 };
 
+
 exports.me = async (req, res) => {
   try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
     res.status(200).json({
       success: true,
-      user: req.user,
+      user: {
+        id: dbUser.id,
+        username: dbUser.username,
+        bio: dbUser.bio || "",
+        avatarUrl: dbUser.avatar_url || "/pfps/default.png",
+      },
     });
   } catch (err) {
     res.status(500).json({
       success: false,
       message: "Failed to fetch user",
     });
+  }
+};
+
+
+exports.getEmailByUsername = async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: "Username required" });
+    }
+
+    const { rows } = await pool.query(
+      "SELECT email FROM users WHERE username = $1",
+      [username.toLowerCase()]
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ email: rows[0].email });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch email" });
   }
 };

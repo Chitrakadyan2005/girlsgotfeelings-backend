@@ -1,4 +1,4 @@
-const Profile = require('../models/Profile');
+const Profile = require("../models/Profile");
 
 exports.getProfile = async (req, res) => {
   try {
@@ -7,7 +7,7 @@ exports.getProfile = async (req, res) => {
     const [profile, posts, stats] = await Promise.all([
       Profile.getUserProfileByUsername(username),
       Profile.getUserPostsByUsername(username),
-      Profile.getUserStatsByUsername(username)
+      Profile.getUserStatsByUsername(username),
     ]);
 
     if (!profile) return res.status(404).json({ error: "User not found" });
@@ -15,29 +15,57 @@ exports.getProfile = async (req, res) => {
     res.json({
       id: profile.id,
       username: profile.username,
-      bio: profile.bio || '',
+      bio: profile.bio || "",
       joinDate: profile.joinDate,
-      avatarUrl: profile.avatar_url || '/pfps/default.png',
-      posts: posts.map(p => ({
+      avatarUrl: profile.avatar_url || "/pfps/default.png",
+      posts: posts.map((p) => ({
         id: p.id,
         content: p.content,
         time: p.time,
-        likes: p.likes
+        likes: p.likes,
       })),
       stats: {
-        postCount: stats.postCount || 0,
-        followers: stats.followerCount || 0,
-        following: stats.followingCount || 0
-      }
+        postCount: stats?.postCount || 0,
+        followers: stats?.followerCount || 0,
+        following: stats?.followingCount || 0,
+      },
     });
   } catch (err) {
+    console.error("getProfile error:", err);
     res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { username, bio } = req.body;
+
+    if (!username) return res.status(400).json({ error: "Username required" });
+
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+    if (!dbUser) return res.status(404).json({ error: "User not found" });
+
+    const updated = await Profile.updateProfile(
+      dbUser.id, // ✅ correct user id
+      username,
+      bio,
+    );
+
+    res.json(updated);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
 };
 
 exports.followUser = async (req, res) => {
   try {
-    const followerId = req.user.id;
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const followerId = dbUser.id;
     const followingId = parseInt(req.params.targetId);
 
     if (followerId === followingId)
@@ -55,13 +83,15 @@ exports.followUser = async (req, res) => {
 
 exports.unfollowUser = async (req, res) => {
   try {
-    const followerId = req.user.id;
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+    if (!dbUser) return res.status(404).json({ error: "User not found" });
+
+    const followerId = dbUser.id;
     const followingId = parseInt(req.params.targetId);
 
     await Profile.unfollowUser(followerId, followingId);
 
     const targetStats = await Profile.getUserStatsById(followingId);
-
     res.json({ targetFollowerCount: targetStats.followerCount });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -70,6 +100,12 @@ exports.unfollowUser = async (req, res) => {
 
 exports.isFollowing = async (req, res) => {
   try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const userId = req.user.id;
     const followingId = parseInt(req.params.targetId);
 
@@ -82,6 +118,12 @@ exports.isFollowing = async (req, res) => {
 
 exports.getFollowers = async (req, res) => {
   try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const userId = parseInt(req.params.userId);
     const followers = await Profile.getFollowers(userId);
     res.json({ followers });
@@ -92,9 +134,45 @@ exports.getFollowers = async (req, res) => {
 
 exports.getFollowing = async (req, res) => {
   try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
     const userId = parseInt(req.params.userId);
     const following = await Profile.getFollowing(userId);
     res.json({ following });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getLikedPosts = async (req, res) => {
+  try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const posts = await Profile.getLikedPosts(dbUser.id);
+    res.json({ posts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getCommentedPosts = async (req, res) => {
+  try {
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const posts = await Profile.getCommentedPosts(dbUser.id);
+    res.json({ posts });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -107,9 +185,14 @@ exports.updateAvatar = async (req, res) => {
     if (req.file) avatarUrl = `/uploads/${req.file.filename}`;
     else if (req.body.avatarUrl) avatarUrl = req.body.avatarUrl;
 
-    if (!avatarUrl) return res.status(400).json({ error: "No avatar provided" });
+    if (!avatarUrl)
+      return res.status(400).json({ error: "No avatar provided" });
 
-    await Profile.updateAvatar(req.user.id, avatarUrl);
+    const dbUser = await Profile.getUserByFirebaseUid(req.user.firebaseUid);
+
+    if (!dbUser) return res.status(404).json({ error: "User not found" });
+
+    await Profile.updateAvatar(dbUser.id, avatarUrl);
 
     res.json({ avatarUrl });
   } catch (err) {

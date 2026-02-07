@@ -1,6 +1,58 @@
 const pool = require('../config/db');
 
 const Profile = {
+getUserByFirebaseUid: async (firebaseUid) => {
+  const { rows } = await pool.query(
+    `SELECT id, username FROM users WHERE firebase_uid = $1`,
+    [firebaseUid]
+  );
+  return rows[0];
+},
+
+updateProfile: async (userId, username, bio) => {
+  const { rows } = await pool.query(
+    `UPDATE users
+     SET username = $1, bio = $2
+     WHERE id = $3
+     RETURNING id, username, bio, avatar_url`,
+    [username, bio || '', userId]
+  );
+
+  return {
+    id: rows[0].id,
+    username: rows[0].username,
+    bio: rows[0].bio,
+    avatarUrl: rows[0].avatar_url
+  };
+},
+
+getLikedPosts: async (userId) => {
+  const { rows } = await pool.query(
+    `SELECT p.id, p.content, u.username
+     FROM likes l
+     JOIN posts p ON p.id = l.post_id
+     JOIN users u ON u.id = p.user_id
+     WHERE l.user_id = $1
+     ORDER BY l.created_at DESC`,
+    [userId]
+  );
+  return rows;
+},
+
+getCommentedPosts: async (userId) => {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT p.id, p.content, u.username
+     FROM comments c
+     JOIN posts p ON p.id = c.post_id
+     JOIN users u ON u.id = p.user_id
+     WHERE c.user_id = $1
+     ORDER BY p.created_at DESC`,
+    [userId]
+  );
+  return rows;
+},
+
+  
 getUserProfileByUsername: async (username) => {
   const { rows } = await pool.query(
     `SELECT id, username, bio, avatar_url, to_char(created_at, 'DD Mon YYYY') as "joinDate"
@@ -24,10 +76,6 @@ getUserStatsById: async (userId) => {
   );
   return rows[0];
 },
-
-
-
-
 
   getUserPostsByUsername: async (username) => {
   const { rows } = await pool.query(
