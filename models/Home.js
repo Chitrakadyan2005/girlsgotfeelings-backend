@@ -1,4 +1,4 @@
-const pool = require('../config/db');
+const pool = require("../config/db");
 
 const Post = {
   // Get all posts with comments and likedByUser info
@@ -9,7 +9,7 @@ const Post = {
         `SELECT p.id, p.content, p.created_at, u.username, u.avatar_url
          FROM posts p
          JOIN users u ON p.user_id = u.id
-         ORDER BY p.created_at DESC`
+         ORDER BY p.created_at DESC`,
       );
 
       // For each post, get like count and likedByUser
@@ -21,7 +21,7 @@ const Post = {
                   ) AS liked
            FROM likes
            WHERE post_id = $1`,
-          [post.id, userId]
+          [post.id, userId],
         );
 
         post.likecount = Number(likeRows[0].likecount);
@@ -34,7 +34,7 @@ const Post = {
            JOIN users u ON c.user_id = u.id
            WHERE c.post_id = $1
            ORDER BY c.created_at ASC`,
-          [post.id]
+          [post.id],
         );
         post.comments = comments;
         post.commentcount = comments.length;
@@ -51,72 +51,78 @@ const Post = {
       `INSERT INTO posts (user_id, content) 
        VALUES ($1, $2) 
        RETURNING id, content, created_at`,
-      [userId, content]
+      [userId, content],
     );
     return rows[0];
   },
 
   // Edit post (only owner)
-editPost: async (postId, userId, content) => {
-  // Check ownership
-  const { rows } = await pool.query(
-    "SELECT user_id FROM posts WHERE id = $1",
-    [postId]
-  );
+  editPost: async (postId, userId, content) => {
+    // Check ownership
+    const { rows } = await pool.query(
+      "SELECT user_id FROM posts WHERE id = $1",
+      [postId],
+    );
 
-  if (rows.length === 0) return null;
-  if (rows[0].user_id !== userId) return "FORBIDDEN";
+    if (rows.length === 0) return null;
+    if (rows[0].user_id !== userId) return "FORBIDDEN";
 
-  const result = await pool.query(
-    "UPDATE posts SET content = $1 WHERE id = $2 RETURNING id, content",
-    [content, postId]
-  );
+    const result = await pool.query(
+      "UPDATE posts SET content = $1 WHERE id = $2 RETURNING id, content",
+      [content, postId],
+    );
 
-  return result.rows[0];
-},
+    return result.rows[0];
+  },
 
-// Delete post (only owner)
-deletePost: async (postId, userId) => {
-  const { rows } = await pool.query(
-    "SELECT user_id FROM posts WHERE id = $1",
-    [postId]
-  );
+  // Delete post (only owner)
+  deletePost: async (postId, userId) => {
+    const { rows } = await pool.query(
+      "SELECT user_id FROM posts WHERE id = $1",
+      [postId],
+    );
 
-  if (rows.length === 0) return null;
-  if (rows[0].user_id !== userId) return "FORBIDDEN";
+    if (rows.length === 0) return null;
+    if (rows[0].user_id !== userId) return "FORBIDDEN";
 
-  await pool.query("DELETE FROM posts WHERE id = $1", [postId]);
-  return true;
-},
+    await pool.query("DELETE FROM posts WHERE id = $1", [postId]);
+    return true;
+  },
 
   // Toggle like/unlike
   toggleLike: async (postId, userId) => {
-  const existing = await pool.query(
-    "SELECT * FROM likes WHERE post_id = $1 AND user_id = $2",
-    [postId, userId]
-  );
+    const existing = await pool.query(
+      "SELECT * FROM likes WHERE post_id = $1 AND user_id = $2",
+      [postId, userId],
+    );
 
-  let liked;
-  if (existing.rows.length > 0) {
-    await pool.query("DELETE FROM likes WHERE post_id = $1 AND user_id = $2", [postId, userId]);
-    liked = false;
-  } else {
-    await pool.query("INSERT INTO likes (post_id, user_id) VALUES ($1, $2)", [postId, userId]);
-    liked = true;
-  }
+    let liked;
+    if (existing.rows.length > 0) {
+      await pool.query(
+        "DELETE FROM likes WHERE post_id = $1 AND user_id = $2",
+        [postId, userId],
+      );
+      liked = false;
+    } else {
+      await pool.query("INSERT INTO likes (post_id, user_id) VALUES ($1, $2)", [
+        postId,
+        userId,
+      ]);
+      liked = true;
+    }
 
-  const { rows } = await pool.query(
-    "SELECT COUNT(*) AS likecount FROM likes WHERE post_id = $1",
-    [postId]
-  );
+    const { rows } = await pool.query(
+      "SELECT COUNT(*) AS likecount FROM likes WHERE post_id = $1",
+      [postId],
+    );
 
-  return { liked, likecount: Number(rows[0].likecount) };
-},
+    return { liked, likecount: Number(rows[0].likecount) };
+  },
 
   addComment: async (userId, postId, text) => {
     const { rows } = await pool.query(
       "INSERT INTO comments (user_id, post_id, text) VALUES ($1, $2, $3) RETURNING id, text, created_at",
-      [userId, postId, text]
+      [userId, postId, text],
     );
 
     const commentId = rows[0].id;
@@ -126,11 +132,11 @@ deletePost: async (postId, userId) => {
        FROM comments c
        JOIN users u ON c.user_id = u.id
        WHERE c.id = $1`,
-      [commentId]
+      [commentId],
     );
 
     return commentRes[0];
-  }
+  },
 };
 
 module.exports = Post;

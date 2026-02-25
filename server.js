@@ -32,7 +32,6 @@ app.use(cors({
 
 app.use(express.json());
 
-// Routes
 const authRoutes = require('./routes/authRoutes');
 const homeRoutes = require('./routes/homeRoutes');
 const searchRoutes = require('./routes/searchRoutes');
@@ -41,6 +40,10 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const profileRoutes = require('./routes/profileRoutes');
 const suggestionRoutes = require('./routes/suggestionRoutes');
 const streamRoomRoutes = require('./routes/streamRoomRoutes');
+const moderationRoutes = require('./routes/moderationRoutes');
+const botRoutes = require('./routes/botRoutes');
+const communityRoute = require('./routes/communityRoutes');
+const testRouter = require('./routes/test');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/home', homeRoutes);
@@ -50,10 +53,14 @@ app.use('/api/notification', notificationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/suggestions', suggestionRoutes);
 app.use('/api/stream-rooms', streamRoomRoutes);
+app.use('/api/v1', moderationRoutes);
+app.use('/api/community', communityRoute);
+app.use('/api/bot',botRoutes);
+app.use("/api", testRouter);
 
 // Default route
 app.get("/", (req, res) => {
-  res.send("Backend is running 🚀");
+  res.send("Backend is running");
 });
 
 // Server + Socket.io
@@ -67,14 +74,11 @@ const io = new Server(server, {
   }
 });
 
-// Import socket handlers
 require('./socket/chat')(io);
 require('./socket/stream')(io);
-require("dotenv").config();
 const admin = require("./config/firebase");
 
 console.log("Firebase Admin apps:", admin.apps.length);
 
-// Start server
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

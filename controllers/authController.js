@@ -1,3 +1,4 @@
+const admin = require("../config/firebase");
 const User = require('../models/User');
 const pool = require('../config/db');
 const Profile = require("../models/Profile");

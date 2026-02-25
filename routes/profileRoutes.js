@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const profileController = require('../controllers/profileController');
-const { jwtverify } = require('../middlewares/auth'); // import the middleware
+const { jwtverify } = require('../middlewares/auth');
 const multer = require('multer');
 
 // Avatar upload setup
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/'); // make sure this folder exists
+    cb(null, 'uploads/');
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + '-' + file.originalname);
@@ -22,6 +22,7 @@ router.get('/followers/:userId', jwtverify, profileController.getFollowers);
 router.get('/following/:userId', jwtverify, profileController.getFollowing);
 router.put('/avatar', jwtverify, upload.single('avatar'), profileController.updateAvatar);
 router.put('/edit', jwtverify, profileController.updateProfile);
+router.put("/privacy", jwtverify, profileController.updatePrivacy);
 router.get('/liked-posts', jwtverify, profileController.getLikedPosts);
 router.get('/commented-posts', jwtverify, profileController.getCommentedPosts);
 router.get('/:username', profileController.getProfile);
