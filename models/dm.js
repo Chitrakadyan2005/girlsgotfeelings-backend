@@ -4,22 +4,29 @@ const Chat = {
   getConversationsList: async (userId) => {
     const { rows } = await pool.query(
       `
-    SELECT DISTINCT ON (other_user.id)
-      other_user.id,
-      other_user.username,
-      other_user.avatar_url AS avatar,
-      m.message AS lastMessage,
-      m.created_at AS time
-    FROM messages m
-    JOIN users other_user
-      ON other_user.id =
-        CASE
-          WHEN m.sender_id = $1 THEN m.receiver_id
-          ELSE m.sender_id
-        END
-    WHERE m.sender_id = $1 OR m.receiver_id = $1
-    ORDER BY other_user.id, m.created_at DESC
-    `,
+  SELECT DISTINCT ON (other_user.id)
+    other_user.id,
+    other_user.username,
+    other_user.avatar_url AS avatar,
+    COALESCE(m.message, 'Start chatting ✨') AS "lastMessage",
+    m.created_at AS time,
+
+    CASE 
+      WHEN m.receiver_id = $1 THEN true
+      ELSE false
+    END AS "isUnread"
+
+  FROM messages m
+  JOIN users other_user
+    ON other_user.id =
+      CASE
+        WHEN m.sender_id = $1 THEN m.receiver_id
+        ELSE m.sender_id
+      END
+
+  WHERE m.sender_id = $1 OR m.receiver_id = $1
+  ORDER BY other_user.id, m.created_at DESC
+  `,
       [userId],
     );
 
@@ -41,7 +48,7 @@ const Chat = {
       (m.sender_id = $1 AND m.receiver_id = $2)
       OR
       (m.sender_id = $2 AND m.receiver_id = $1)
-    ORDER BY m.created_at DESC
+    ORDER BY m.created_at ASC
     LIMIT $3 OFFSET $4
     `,
       [userId, otherUserId, limit, offset],

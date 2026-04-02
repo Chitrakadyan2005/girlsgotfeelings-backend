@@ -6,11 +6,18 @@ const {
   updatePost,
   deletePost,
   addComment,
+  getLikedPosts,
+  getCommentedPosts,
+  getMyPosts,
 } = require("../controllers/communityController");
 
 const { jwtverify } = require("../middlewares/auth");
 
 const router = express.Router();
+
+router.get("/liked-posts", jwtverify, getLikedPosts);
+router.get("/commented-posts", jwtverify, getCommentedPosts);
+router.get("/my-posts", jwtverify, getMyPosts);
 
 router.get("/:communityId/posts", jwtverify, getCommunityPosts);
 router.post("/:communityId/posts", jwtverify, createCommunityPost);
