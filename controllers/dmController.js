@@ -18,6 +18,22 @@ exports.canDM = async (req, res, next) => {
     return res.status(400).json({ error: "You cannot message yourself" });
   }
 
+  // BLOCK CHECK
+  const blocked = await pool.query(
+    `
+  SELECT 1 FROM blocked_users
+  WHERE 
+    (blocker_id = $1 AND blocked_id = $2)
+    OR
+    (blocker_id = $2 AND blocked_id = $1)
+  `,
+    [senderId, receiverId],
+  );
+
+  if (blocked.rows.length > 0) {
+    return res.status(403).json({ error: "User blocked" });
+  }
+
   const { rows: wl } = await pool.query(
     `
   SELECT 1 FROM dm_whitelist
@@ -197,6 +213,72 @@ exports.sendMessages = async (req, res) => {
     res.status(201).json(saved);
   } catch (err) {
     console.error("sendMessages error:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.blockUser = async (req, res) => {
+  try {
+    const blockerId = req.user.id;
+    const blockedId = Number(req.params.userId);
+
+    if (!blockedId) {
+      return res.status(400).json({ error: "UserId required" });
+    }
+
+    await pool.query(
+      `
+      INSERT INTO blocked_users (blocker_id, blocked_id)
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+      `,
+      [blockerId, blockedId]
+    );
+
+    res.json({ success: true, message: "User blocked" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.deleteChat = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const otherUserId = Number(req.params.userId);
+
+    await pool.query(
+      `
+      DELETE FROM messages
+      WHERE 
+        (sender_id = $1 AND receiver_id = $2)
+        OR
+        (sender_id = $2 AND receiver_id = $1)
+      `,
+      [userId, otherUserId]
+    );
+
+    res.json({ success: true, message: "Chat deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.reportUser = async (req, res) => {
+  try {
+    const reporterId = req.user.id;
+    const reportedUserId = Number(req.params.userId);
+    const { reason } = req.body;
+
+    await pool.query(
+      `
+      INSERT INTO reports (reporter_id, reported_user_id, reason)
+      VALUES ($1, $2, $3)
+      `,
+      [reporterId, reportedUserId, reason || null]
+    );
+
+    res.json({ success: true, message: "User reported" });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 };

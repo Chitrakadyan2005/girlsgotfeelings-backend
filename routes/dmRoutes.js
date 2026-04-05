@@ -29,4 +29,10 @@ router.get("/can-dm/:userId", jwtverify, chatController.canDM, (req, res) =>
 );
 router.post("/chat/send", jwtverify, chatController.canDM, chatController.sendMessages);
 
+router.post("/block/:userId", jwtverify, chatController.blockUser);
+
+router.delete("/chat/:userId", jwtverify, chatController.deleteChat);
+
+router.post("/report/:userId", jwtverify, chatController.reportUser);
+
 module.exports = router;
